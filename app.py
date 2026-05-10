@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import torch
+from transformers import pipeline
 import re
 
 from fastapi.templating import Jinja2Templates
@@ -13,31 +12,17 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(
     title="Text Summarizer App",
-    description="AI Text Summarization App",
+    description="Lightweight Text Summarization App",
     version="1.0"
 )
 
 
-# ---------------- LOAD MODEL ---------------- #
+# ---------------- LOAD LIGHTWEIGHT MODEL ---------------- #
 
-MODEL_NAME = "sshleifer/distilbart-cnn-6-6"
-
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
-
-
-# ---------------- DEVICE SETUP ---------------- #
-
-if torch.backends.mps.is_available():
-    device = torch.device("mps")
-
-elif torch.cuda.is_available():
-    device = torch.device("cuda")
-
-else:
-    device = torch.device("cpu")
-
-model.to(device)
+summarizer = pipeline(
+    "summarization",
+    model="sshleifer/distilbart-cnn-12-6"
+)
 
 
 # ---------------- TEMPLATES ---------------- #
@@ -75,39 +60,18 @@ def clean_data(text: str):
 
 # ---------------- SUMMARIZATION ---------------- #
 
-def summarize_text(text: str) -> str:
+def summarize_dialogue(dialogue: str) -> str:
 
-    text = clean_data(text)
+    dialogue = clean_data(dialogue)
 
-    # Tokenization
-    inputs = tokenizer(
-        text,
-        max_length=1024,
-        truncation=True,
-        return_tensors="pt"
+    summary = summarizer(
+        dialogue,
+        max_length=80,
+        min_length=20,
+        do_sample=False
     )
 
-    # Move tensors to device
-    input_ids = inputs["input_ids"].to(device)
-    attention_mask = inputs["attention_mask"].to(device)
-
-    # Generate summary
-    outputs = model.generate(
-        input_ids=input_ids,
-        attention_mask=attention_mask,
-        max_length=120,
-        min_length=30,
-        num_beams=4,
-        early_stopping=True
-    )
-
-    # Decode summary
-    summary = tokenizer.decode(
-        outputs[0],
-        skip_special_tokens=True
-    )
-
-    return summary
+    return summary[0]["summary_text"]
 
 
 # ---------------- API ROUTE ---------------- #
@@ -115,7 +79,7 @@ def summarize_text(text: str) -> str:
 @app.post("/summarize/")
 async def summarize(dialogue_input: DialogueInput):
 
-    summary = summarize_text(
+    summary = summarize_dialogue(
         dialogue_input.dialogue
     )
 
