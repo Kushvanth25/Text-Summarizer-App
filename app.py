@@ -2,101 +2,109 @@ from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from transformers import pipeline
 import re
+import torch
 
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-
-# ---------------- FASTAPI APP ---------------- #
+# ---------------- FASTAPI APP ----------------
 
 app = FastAPI(
-    title="Text Summarizer App",
-    description="Lightweight Text Summarization App",
-    version="1.0"
+title="Text Summarizer App",
+description="Lightweight Text Summarization App",
+version="1.0"
 )
 
+# ---------------- DEVICE ----------------
 
-# ---------------- LOAD LIGHTWEIGHT MODEL ---------------- #
+device = -1   # CPU ONLY
+
+# ---------------- LOAD LIGHTWEIGHT MODEL ----------------
 
 summarizer = pipeline(
-    "summarization",
-    model="sshleifer/distilbart-cnn-12-6"
+"summarization",
+model="sshleifer/distilbart-cnn-12-6",
+device=device
 )
 
-
-# ---------------- TEMPLATES ---------------- #
+# ---------------- TEMPLATES ----------------
 
 templates = Jinja2Templates(
-    directory="templates"
+directory="templates"
 )
 
-
-# ---------------- STATIC FILES ---------------- #
+# ---------------- STATIC FILES ----------------
 
 app.mount(
-    "/static",
-    StaticFiles(directory="static"),
-    name="static"
+"/static",
+StaticFiles(directory="static"),
+name="static"
 )
 
-
-# ---------------- INPUT SCHEMA ---------------- #
+# ---------------- INPUT SCHEMA ----------------
 
 class DialogueInput(BaseModel):
-    dialogue: str
+dialogue: str
 
-
-# ---------------- CLEAN FUNCTION ---------------- #
+# ---------------- CLEAN FUNCTION ----------------
 
 def clean_data(text: str):
 
-    text = re.sub(r"\r\n", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    text = re.sub(r"<.*?>", " ", text)
+```
+text = re.sub(r"\r\n", " ", text)
+text = re.sub(r"\s+", " ", text)
+text = re.sub(r"<.*?>", " ", text)
 
-    return text.strip()
+return text.strip()
+```
 
-
-# ---------------- SUMMARIZATION ---------------- #
+# ---------------- SUMMARIZATION ----------------
 
 def summarize_dialogue(dialogue: str) -> str:
 
-    dialogue = clean_data(dialogue)
+```
+dialogue = clean_data(dialogue)
 
-    summary = summarizer(
-        dialogue,
-        max_length=80,
-        min_length=20,
-        do_sample=False
-    )
+# limit input size for memory safety
+dialogue = dialogue[:1000]
 
-    return summary[0]["summary_text"]
+summary = summarizer(
+    dialogue,
+    max_length=60,
+    min_length=15,
+    do_sample=False
+)
 
+return summary[0]["summary_text"]
+```
 
-# ---------------- API ROUTE ---------------- #
+# ---------------- API ROUTE ----------------
 
 @app.post("/summarize/")
 async def summarize(dialogue_input: DialogueInput):
 
-    summary = summarize_dialogue(
-        dialogue_input.dialogue
-    )
+```
+summary = summarize_dialogue(
+    dialogue_input.dialogue
+)
 
-    return {
-        "summary": summary
-    }
+return {
+    "summary": summary
+}
+```
 
-
-# ---------------- HOME PAGE ---------------- #
+# ---------------- HOME PAGE ----------------
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
 
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={
-            "request": request
-        }
-    )
+```
+return templates.TemplateResponse(
+    request=request,
+    name="index.html",
+    context={
+        "request": request
+    }
+)
+```
