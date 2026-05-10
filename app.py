@@ -15,7 +15,7 @@ app = FastAPI(
 
 summarizer = pipeline(
     "summarization",
-    model="Falconsai/text_summarization",
+    model="sshleifer/distilbart-cnn-12-6",
     device=-1
 )
 
