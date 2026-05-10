@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from transformers import T5ForConditionalGeneration, T5Tokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 import re
 
@@ -13,19 +13,17 @@ from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(
     title="Text Summarizer App",
-    description="Text Summarization using T5",
+    description="AI Text Summarization App",
     version="1.0"
 )
 
 
 # ---------------- LOAD MODEL ---------------- #
 
-model_path = "./saved_summary_model"
+MODEL_NAME = "sshleifer/distilbart-cnn-6-6"
 
-MODEL_NAME = "t5-small"
-
-model = T5ForConditionalGeneration.from_pretrained(MODEL_NAME)
-tokenizer = T5Tokenizer.from_pretrained(MODEL_NAME)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
 
 
 # ---------------- DEVICE SETUP ---------------- #
@@ -72,23 +70,19 @@ def clean_data(text: str):
     text = re.sub(r"\s+", " ", text)
     text = re.sub(r"<.*?>", " ", text)
 
-    return text.strip().lower()
+    return text.strip()
 
 
 # ---------------- SUMMARIZATION ---------------- #
 
-def summarize_dialogue(dialogue: str) -> str:
+def summarize_text(text: str) -> str:
 
-    dialogue = clean_data(dialogue)
-
-    # T5 task prefix
-    dialogue = "summarize: " + dialogue
+    text = clean_data(text)
 
     # Tokenization
     inputs = tokenizer(
-        dialogue,
-        max_length=512,
-        padding="max_length",
+        text,
+        max_length=1024,
         truncation=True,
         return_tensors="pt"
     )
@@ -101,7 +95,8 @@ def summarize_dialogue(dialogue: str) -> str:
     outputs = model.generate(
         input_ids=input_ids,
         attention_mask=attention_mask,
-        max_length=150,
+        max_length=120,
+        min_length=30,
         num_beams=4,
         early_stopping=True
     )
@@ -120,7 +115,7 @@ def summarize_dialogue(dialogue: str) -> str:
 @app.post("/summarize/")
 async def summarize(dialogue_input: DialogueInput):
 
-    summary = summarize_dialogue(
+    summary = summarize_text(
         dialogue_input.dialogue
     )
 
