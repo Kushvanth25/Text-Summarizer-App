@@ -15,7 +15,9 @@ app = FastAPI(
 
 summarizer = pipeline(
     "summarization",
-    model="Falconsai/text_summarization"
+    model="sshleifer/distilbart-cnn-12-6",
+    framework="pt",
+    device=-1
 )
 
 templates = Jinja2Templates(directory="templates")
